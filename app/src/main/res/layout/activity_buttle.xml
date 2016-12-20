@@ -18,7 +18,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="残りの札数："
+            android:text="残：5"
             android:background="@color/bot"
             android:layout_weight="7"
             android:id="@+id/bot_remain"
