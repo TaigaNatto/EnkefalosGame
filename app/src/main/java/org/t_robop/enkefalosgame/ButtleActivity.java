@@ -45,10 +45,13 @@ public class ButtleActivity extends AppCompatActivity {
     //勝敗分判定
     int judge;
 
+    boolean angel=false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         //mbaas連携
+        
 
         setContentView(R.layout.activity_buttle);
 
@@ -90,38 +93,17 @@ public class ButtleActivity extends AppCompatActivity {
         cardsResidue.setText("残："+String.valueOf(residue));
 
         /*****戦闘処理*****/
-        battle();
-
-        /*****戦闘終了処理*****/
-        //bot学習
-        if(battleId!=null) {
-            Log.d("NIFTY", battleId);
-        }
-        //bot勝利時
-        if(judge==1){
-            //勝ったパターンを記録
-            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard));
-        }
-        //bot敗北時
-        else if(judge==0){
-            //player(勝者)のデータを取得
-            searchNCMB(botAllCards,playerAllCards,"");
-            searchNCMB(botAllCards,playerAllCards,"");
-            //相手のパターンを記録
-            editRecord(botAllCards,playerAllCards,String.valueOf(playerBattleCard));
-        }
-
-        //残りの札を形式に変えて代入
-        playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
-        botAllCards=renovationMethod(botAllCards,botBattleCard);
+        //データベース検索とbotの出し手の決定
+        searchNCMB(playerAllCards,botAllCards,"battle");
 
     }
 
     public void battle(){
 
-        //データベース検索とbotの出し手の決定
-        searchNCMB(playerAllCards,botAllCards,"battle");
-        searchNCMB(playerAllCards,botAllCards,"battle");
+        if(angel) {
+            searchNCMB(playerAllCards, botAllCards, "battle");
+        }
+        angel=false;
 
         //戦闘
         //引き分け
@@ -154,6 +136,47 @@ public class ButtleActivity extends AppCompatActivity {
             judge=1;
         }
 
+        battleFinish();
+
+    }
+
+    //戦闘終了
+    public void battleFinish(){
+        /*****戦闘終了処理*****/
+
+        //bot学習
+        if(battleId!=null) {
+            Log.d("NIFTY", battleId);
+        }
+        //bot勝利時
+        if(judge==1){
+            //勝ったパターンを記録
+            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard));
+
+            //残りの札を形式に変えて代入
+            playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
+            botAllCards=renovationMethod(botAllCards,botBattleCard);
+        }
+        //bot敗北時
+        else if(judge==0){
+            //player(勝者)のデータを取得
+            searchNCMB(botAllCards,playerAllCards,"get");
+        }
+    }
+
+    //データ取得からの編集
+    public void tempBattle(){
+        if(angel) {
+            searchNCMB(botAllCards, playerAllCards, "");
+        }
+        angel=false;
+
+        //相手のパターンを記録
+        editRecord(botAllCards,playerAllCards,String.valueOf(playerBattleCard));
+
+        //残りの札を形式に変えて代入
+        playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
+        botAllCards=renovationMethod(botAllCards,botBattleCard);
     }
 
     //検索関数
@@ -195,10 +218,18 @@ public class ButtleActivity extends AppCompatActivity {
                         if (mode.equals("battle")) {
                             //botの出し手の取得
                             botBattleCard = getBotCard(results,temp);
+                            battle();
                         }
                     }
                     else {
-                        addRecord(playerValue,botValue);
+                        if(mode.equals("get")) {
+                            tempBattle();
+                        }
+                        else {
+                            addRecord(playerValue, botValue);
+                            angel = true;
+                            battle();
+                        }
                     }
                 }
             }
