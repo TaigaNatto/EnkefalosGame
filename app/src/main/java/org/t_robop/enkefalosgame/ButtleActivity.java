@@ -1,5 +1,7 @@
 package org.t_robop.enkefalosgame;
 
+import android.content.DialogInterface;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -53,11 +55,16 @@ public class ButtleActivity extends AppCompatActivity {
     //処理中か否かの判定
     boolean systemLoading=false;
 
+    //勝敗を出すダイアログ
+    AlertDialog.Builder alertDialog;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         //mbaas連携
-        
+        NCMB.initialize(this.getApplicationContext(),
+                "8b68c184aea27a5d9f047e4282003a3c53babbb748d81a65cbc733039d6480c9",
+                "230f6c44049af9a66efadf32a2b8bb497b1310369670677238917a6cac7b971e");
 
         setContentView(R.layout.activity_buttle);
 
@@ -169,7 +176,8 @@ public class ButtleActivity extends AppCompatActivity {
 
             //表示
             cardsResidue.setText("" + String.valueOf(botAllCards));
-
+            //ダイアログ表示
+            drawDialog();
             //処理おわり
             systemLoading=false;
         }
@@ -191,7 +199,8 @@ public class ButtleActivity extends AppCompatActivity {
 
             //表示
             cardsResidue.setText("" + String.valueOf(botAllCards));
-
+            //ダイアログ表示
+            drawDialog();
             //処理おわり
             systemLoading=false;
         }
@@ -217,7 +226,8 @@ public class ButtleActivity extends AppCompatActivity {
 
             //表示
             cardsResidue.setText("" + String.valueOf(botAllCards));
-
+            //ダイアログ表示
+            drawDialog();
             //処理おわり
             systemLoading=false;
         }
@@ -395,5 +405,60 @@ public class ButtleActivity extends AppCompatActivity {
         }
 
         return false;
+    }
+
+    public void setDialog(String title,String massage){
+
+        alertDialog=new AlertDialog.Builder(this);
+
+        // ダイアログの設定
+        alertDialog.setTitle(title);      //タイトル設定
+        alertDialog.setMessage(massage);  //内容(メッセージ)設定
+
+        // OK(肯定的な)ボタンの設定
+        alertDialog.setPositiveButton("次へ", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                // OKボタン押下時の処理
+            }
+        });
+
+        alertDialog.show();
+
+    }
+
+    public void drawDialog(){
+
+        String title="";
+        String masse="";
+
+        //手札０(ゲーム終了時)
+        if(residue==0){
+            title="ゲーム終了";
+            if(playerWin==botWin){
+                masse="引き分け：";
+            }
+            else if (playerWin > botWin) {
+                masse="ユーザー勝利：";
+            }
+            else if(botWin>playerWin){
+                masse="CPU勝利：";
+            }
+            masse=masse+playerWin+"-"+botWin;
+        }
+        else {
+            if(judge==0){
+                title="ユーザーの勝利";
+            }
+            else if(judge==1){
+                title="CPUの勝利";
+            }
+            else if(judge==2){
+                title="引き分け";
+            }
+            masse=playerBattleCard+"-"+botBattleCard;
+        }
+
+        setDialog(title,masse);
+
     }
 }
