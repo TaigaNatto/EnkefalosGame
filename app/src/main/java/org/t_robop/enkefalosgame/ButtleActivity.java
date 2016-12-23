@@ -44,8 +44,14 @@ public class ButtleActivity extends AppCompatActivity {
 
     //勝敗分判定
     int judge;
-
+    //再検索判定
     boolean angel=false;
+
+    //サーバーデータ一時保存用変数
+    NCMBObject gloObj;
+
+    //処理中か否かの判定
+    boolean systemLoading=false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,32 +84,34 @@ public class ButtleActivity extends AppCompatActivity {
     //ボタンが押された時
     public void choise(View v){
 
-        /*****表面処理*****/
-        //タグから押された札を取得
-        String temp=String.valueOf(v.getTag());
-        playerBattleCard=Integer.parseInt(temp);
-        //＆表示
-        cardsPlayer.setText(String.valueOf(playerBattleCard));
-        //Buttonを見えなくする
-        playButton[playerBattleCard].setVisibility(View.INVISIBLE);
+        //処理中は押せません
+        if(systemLoading==false) {
 
-        //札数を減らす
-        residue--;
-        //＆表示
-        cardsResidue.setText("残："+String.valueOf(residue));
+            systemLoading=true;
 
-        /*****戦闘処理*****/
-        //データベース検索とbotの出し手の決定
-        searchNCMB(playerAllCards,botAllCards,"battle");
+            /*****表面処理*****/
+            //タグから押された札を取得
+            String temp = String.valueOf(v.getTag());
+            playerBattleCard = Integer.parseInt(temp);
+            //＆表示
+            cardsPlayer.setText(String.valueOf(playerBattleCard));
+            //Buttonを見えなくする
+            playButton[playerBattleCard].setVisibility(View.INVISIBLE);
+
+            //札数を減らす
+            residue--;
+            //＆表示
+            //cardsResidue.setText("残：" + String.valueOf(residue));
+
+            /*****戦闘処理*****/
+            //データベース検索とbotの出し手の決定
+            searchNCMB(playerAllCards, botAllCards, "battle");
+
+        }
 
     }
 
     public void battle(){
-
-        if(angel) {
-            searchNCMB(playerAllCards, botAllCards, "battle");
-        }
-        angel=false;
 
         //戦闘
         //引き分け
@@ -150,33 +158,76 @@ public class ButtleActivity extends AppCompatActivity {
         }
         //bot勝利時
         if(judge==1){
+            //サーバーの勝数を取得
+            int num=gloObj.getInt(String.valueOf(botBattleCard));
             //勝ったパターンを記録
-            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard));
+            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard),num);
 
             //残りの札を形式に変えて代入
             playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
             botAllCards=renovationMethod(botAllCards,botBattleCard);
+
+            //表示
+            cardsResidue.setText("" + String.valueOf(botAllCards));
+
+            //処理おわり
+            systemLoading=false;
         }
         //bot敗北時
         else if(judge==0){
             //player(勝者)のデータを取得
             searchNCMB(botAllCards,playerAllCards,"get");
         }
+        //引き分け時
+        else if(judge==2){
+            //サーバーの勝数を取得
+            int num=gloObj.getInt("draw");
+            //引き分けパターンを記録
+            editRecord(playerAllCards,botAllCards,"draw",num);
+
+            //残りの札を形式に変えて代入
+            playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
+            botAllCards=renovationMethod(botAllCards,botBattleCard);
+
+            //表示
+            cardsResidue.setText("" + String.valueOf(botAllCards));
+
+            //処理おわり
+            systemLoading=false;
+        }
     }
 
-    //データ取得からの編集
-    public void tempBattle(){
-        if(angel) {
-            searchNCMB(botAllCards, playerAllCards, "");
+    //避難所
+    public void tempBattle(int type){
+        //バトル終了の学習
+        if(type==1) {
+            if (angel) {
+                searchNCMB(botAllCards, playerAllCards, "");
+            }
+            angel = false;
+
+            //サーバーの勝数を取得
+            int num=gloObj.getInt(String.valueOf(playerBattleCard));
+            //相手のパターンを記録
+            editRecord(botAllCards, playerAllCards, String.valueOf(playerBattleCard),num);
+
+            //残りの札を形式に変えて代入
+            playerAllCards = renovationMethod(playerAllCards, playerBattleCard);
+            botAllCards = renovationMethod(botAllCards, botBattleCard);
+
+            //表示
+            cardsResidue.setText("" + String.valueOf(botAllCards));
+
+            //処理おわり
+            systemLoading=false;
         }
-        angel=false;
-
-        //相手のパターンを記録
-        editRecord(botAllCards,playerAllCards,String.valueOf(playerBattleCard));
-
-        //残りの札を形式に変えて代入
-        playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
-        botAllCards=renovationMethod(botAllCards,botBattleCard);
+        //バトル直前の再検索処理
+        else if(type==2){
+            if(angel) {
+                searchNCMB(playerAllCards, botAllCards, "battle");
+            }
+            angel=false;
+        }
     }
 
     //検索関数
@@ -215,20 +266,28 @@ public class ButtleActivity extends AppCompatActivity {
                         //条件に合うレコードのidを取得
                         battleId = results.get(temp).getObjectId();
 
+                        gloObj=results.get(temp);
+
                         if (mode.equals("battle")) {
                             //botの出し手の取得
                             botBattleCard = getBotCard(results,temp);
                             battle();
                         }
+                        else if(mode.equals("get")) {
+                            //バトル終了の学習に飛ばす
+                            tempBattle(1);
+                        }
                     }
                     else {
                         if(mode.equals("get")) {
-                            tempBattle();
+                            //バトル終了の学習に飛ばす
+                            tempBattle(1);
                         }
                         else {
                             addRecord(playerValue, botValue);
                             angel = true;
-                            battle();
+                            //バトル直前の再検索に飛ばす
+                            tempBattle(2);
                         }
                     }
                 }
@@ -262,12 +321,12 @@ public class ButtleActivity extends AppCompatActivity {
     }
 
     //レコードの編集
-    public void editRecord(int playerValue, int botValue,String value){
+    public void editRecord(int playerValue, int botValue,String value,int gloNum){
 
         final NCMBObject obj = new NCMBObject("Data");
         obj.put("botCards", botValue);
         obj.put("enemyCards", playerValue);
-        obj.put(value,+1);
+        obj.put(value,gloNum+1);
         //idセット
         obj.setObjectId(battleId);
 
@@ -312,7 +371,7 @@ public class ButtleActivity extends AppCompatActivity {
 
         int blackDog=1;
 
-        for(int i=0;i<card;i++){
+        for(int i=1;i<=card;i++){
             blackDog=blackDog*10;
         }
 
