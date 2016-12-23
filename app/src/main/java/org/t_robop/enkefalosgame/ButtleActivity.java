@@ -62,9 +62,7 @@ public class ButtleActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         //mbaas連携
-        NCMB.initialize(this.getApplicationContext(),
-                "8b68c184aea27a5d9f047e4282003a3c53babbb748d81a65cbc733039d6480c9",
-                "230f6c44049af9a66efadf32a2b8bb497b1310369670677238917a6cac7b971e");
+        
 
         setContentView(R.layout.activity_buttle);
 
