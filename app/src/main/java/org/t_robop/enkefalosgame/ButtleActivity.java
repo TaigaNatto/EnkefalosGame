@@ -1,6 +1,7 @@
 package org.t_robop.enkefalosgame;
 
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -164,32 +165,34 @@ public class ButtleActivity extends AppCompatActivity {
         //bot勝利時
         if(judge==1){
             //サーバーの勝数を取得
-            int num=gloObj.getInt(String.valueOf(botBattleCard));
+            int winNum=gloObj.getInt(String.valueOf(botBattleCard));
+            //戦闘数の記録
+            int num=gloObj.getInt(String.valueOf(botBattleCard)+"num");
             //勝ったパターンを記録
-            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard),num);
+            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard),num,winNum+1);
 
-            //残りの札を形式に変えて代入
-            playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
-            botAllCards=renovationMethod(botAllCards,botBattleCard);
-
-            //表示
-            cardsResidue.setText("" + String.valueOf(botAllCards));
-            //ダイアログ表示
-            drawDialog();
-            //処理おわり
-            systemLoading=false;
+            //player(敗者)のデータを取得
+            searchNCMB(botAllCards,playerAllCards,"getL");
         }
         //bot敗北時
         else if(judge==0){
+
+            //サーバーの勝数を取得
+            int winNum=gloObj.getInt(String.valueOf(botBattleCard));
+            //戦闘数の記録
+            int num=gloObj.getInt(String.valueOf(botBattleCard)+"num");
+            //勝ったパターンを記録
+            editRecord(playerAllCards,botAllCards,String.valueOf(botBattleCard),num,winNum);
+
             //player(勝者)のデータを取得
-            searchNCMB(botAllCards,playerAllCards,"get");
+            searchNCMB(botAllCards,playerAllCards,"getW");
         }
         //引き分け時
         else if(judge==2){
-            //サーバーの勝数を取得
+            //サーバーの引き分け数を取得
             int num=gloObj.getInt("draw");
             //引き分けパターンを記録
-            editRecord(playerAllCards,botAllCards,"draw",num);
+            editRecord(playerAllCards,botAllCards,"draw",num,0);
 
             //残りの札を形式に変えて代入
             playerAllCards=renovationMethod(playerAllCards,playerBattleCard);
@@ -207,16 +210,25 @@ public class ButtleActivity extends AppCompatActivity {
     //避難所
     public void tempBattle(int type){
         //バトル終了の学習
-        if(type==1) {
+        if(type==1||type==0) {
             if (angel) {
                 searchNCMB(botAllCards, playerAllCards, "");
             }
             angel = false;
 
+            //todo 勝数じゃなくて勝率取ってきてるから勝率を内部で計算させればいいんや
             //サーバーの勝数を取得
-            int num=gloObj.getInt(String.valueOf(playerBattleCard));
-            //相手のパターンを記録
-            editRecord(botAllCards, playerAllCards, String.valueOf(playerBattleCard),num);
+            int winNum=gloObj.getInt(String.valueOf(playerBattleCard));
+            //戦闘数の記録
+            int num=gloObj.getInt(String.valueOf(playerBattleCard)+"num");
+            if(type==1) {
+                //相手のパターンを記録
+                editRecord(botAllCards, playerAllCards, String.valueOf(playerBattleCard), num, winNum );
+            }
+            else {
+                //相手のパターンを記録
+                editRecord(botAllCards, playerAllCards, String.valueOf(playerBattleCard), num, winNum +1);
+            }
 
             //残りの札を形式に変えて代入
             playerAllCards = renovationMethod(playerAllCards, playerBattleCard);
@@ -279,17 +291,26 @@ public class ButtleActivity extends AppCompatActivity {
                         if (mode.equals("battle")) {
                             //botの出し手の取得
                             botBattleCard = getBotCard(results,temp);
+//                            cardsBot.setText(botBattleCard);
                             battle();
                         }
-                        else if(mode.equals("get")) {
+                        else if(mode.equals("getL")) {
                             //バトル終了の学習に飛ばす
                             tempBattle(1);
+                        }
+                        else if(mode.equals("getW")){
+                            //バトル終了の学習に飛ばす
+                            tempBattle(0);
                         }
                     }
                     else {
-                        if(mode.equals("get")) {
+                        if(mode.equals("getL")) {
                             //バトル終了の学習に飛ばす
                             tempBattle(1);
+                        }
+                        else if(mode.equals("getW")){
+                            //バトル終了の学習に飛ばす
+                            tempBattle(0);
                         }
                         else {
                             addRecord(playerValue, botValue);
@@ -310,16 +331,21 @@ public class ButtleActivity extends AppCompatActivity {
         double temp=0;
         //より強い手の一時退避
         int dicision=0;
-        //読み込み用配列の作成(拡張性上げるためにとりあえずこのままで)
-        double card[]=new double[5];
+        //洗礼用
+        double per;
+        //読み込み用
+        int win;
+        int num;
         //5回やってより強い出し手へと洗礼していく
         for(int i=0;i<5;i++){
             if(judgeMethod(botAllCards,i)) {
                 //データの取得
-                card[i] = results.get(pos).getDouble(String.valueOf(i));
+                win = results.get(pos).getInt(String.valueOf(i));
+                num= results.get(pos).getInt(String.valueOf(i)+"num");
+                per=getWinPer(win,num);
                 //より高い勝数の手を出す(とりあえず乱数は無しで)
-                if (card[i] >= temp) {
-                    temp = card[i];
+                if (per >= temp) {
+                    temp = per;
                     dicision = i;
                 }
             }
@@ -328,13 +354,28 @@ public class ButtleActivity extends AppCompatActivity {
         return dicision;
     }
 
+    //勝率の計算
+    public double getWinPer(int winNum,int battleNum){
+        double per=0;
+        if(battleNum!=0) {
+            per = (winNum / battleNum) * 100;
+        }
+        return per;
+    }
+
     //レコードの編集
-    public void editRecord(int playerValue, int botValue,String value,int gloNum){
+    public void editRecord(int playerValue, int botValue,String value,int gloNum,int winNum){
 
         final NCMBObject obj = new NCMBObject("Data");
         obj.put("botCards", botValue);
         obj.put("enemyCards", playerValue);
-        obj.put(value,gloNum+1);
+        if(!value.equals("draw")) {
+            obj.put(value, winNum);
+            obj.put(value+"num",gloNum+1);
+        }
+        else {
+            obj.put(value , gloNum + 1);
+        }
         //idセット
         obj.setObjectId(battleId);
 
@@ -405,7 +446,7 @@ public class ButtleActivity extends AppCompatActivity {
         return false;
     }
 
-    public void setDialog(String title,String massage){
+    public void setDialog(String title, String massage, final String mode){
 
         alertDialog=new AlertDialog.Builder(this);
 
@@ -417,6 +458,13 @@ public class ButtleActivity extends AppCompatActivity {
         alertDialog.setPositiveButton("次へ", new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int which) {
                 // OKボタン押下時の処理
+                if(mode.equals("end")){
+                    Intent intent=new Intent(ButtleActivity.this,MainActivity.class);
+                    startActivity(intent);
+                }
+                else{
+                    cardsBot.setText("？");
+                }
             }
         });
 
@@ -428,10 +476,12 @@ public class ButtleActivity extends AppCompatActivity {
 
         String title="";
         String masse="";
+        String mode="";
 
         //手札０(ゲーム終了時)
         if(residue==0){
             title="ゲーム終了";
+            mode="end";
             if(playerWin==botWin){
                 masse="引き分け：";
             }
@@ -456,7 +506,7 @@ public class ButtleActivity extends AppCompatActivity {
             masse=playerBattleCard+"-"+botBattleCard;
         }
 
-        setDialog(title,masse);
+        setDialog(title,masse,mode);
 
     }
 }
